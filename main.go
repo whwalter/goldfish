@@ -105,8 +105,13 @@ func resolv(d chan bool) {
 		case <-d:
 			break
 		default:
+			s := time.Now()
 			if _, e := net.DefaultResolver.LookupHost(ctx, "github.com"); e != nil { errCount++ } else { successCount++ }
 			// We should get about 10/sec/resolver
+			e := time.Now()
+			if e.Sub(s).Seconds() >= 5 {
+				fmt.Printf("Slow name query: %ss\t", e.Sub(s).Seconds())
+			}
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
