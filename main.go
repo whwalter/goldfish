@@ -60,8 +60,12 @@ func main() {
 
 	if *conf.cpu {
 		rand.Seed(time.Now().UnixNano())
-		go cpuStress(done)
-		go cpuStress(done)
+		for x := 0; x < runtime.NumCPU(); x++ {
+			go cpuStress(done)
+			go cpuStress(done)
+			go cpuStress(done)
+			go cpuStress(done)
+		}
 	}
 	go func(m []int32) {
 		for {
