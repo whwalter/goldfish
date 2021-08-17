@@ -12,12 +12,14 @@ import (
 )
 
 var errCount int
+var slowCount int
 var successCount int
 //var totalCount int
 
 type config struct {
 	resolverCount *int
 	duration *int
+	timeout *int
 	memory *bool
 	cpu *bool
 }
@@ -29,10 +31,12 @@ func init(){
 	const (
 		defaultResolverCount = 2
 		defaultDuration = 60
+		defaultTimeout = 200
 	)
 
 	conf.resolverCount =  flag.Int("r", defaultResolverCount, "The number of resolver routines to run, default: 2")
 	conf.duration =  flag.Int("d", defaultDuration, "The duration of the test, default: 60")
+	conf.timeout =  flag.Int("t", 200, "Timeout for host lookups, default: 200")
 	conf.memory =  flag.Bool("m", false, "run memory tests, default: false")
 	conf.cpu =  flag.Bool("c", false, "run cpu intensive, default: false")
 	rand.Seed(time.Now().UnixNano())
@@ -77,7 +81,7 @@ func main() {
 				if *conf.memory {
 					m[rand.Int31n(35000)] = rand.Int31n(35000)
 				}
-				fmt.Printf("%s err: %d\t suc: %d\t errPct: %d\n%s ", t, errCount, successCount, pct, t)
+				fmt.Printf("%s slow: %d\t err: %d\t suc: %d\t errPct: %d\n%s ", t, slowCount, errCount, successCount, pct, t)
 				printMemUsage()
 //				debug.FreeOSMemory()
 			}
@@ -99,19 +103,18 @@ func main() {
 }
 
 func resolv(d chan bool) {
-	ctx := context.TODO()
 	for {
+		ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(*conf.timeout) * time.Millisecond)
+		defer cancel()
 		select {
 		case <-d:
 			break
 		default:
-			s := time.Now()
-			if _, e := net.DefaultResolver.LookupHost(ctx, "github.com"); e != nil { errCount++ } else { successCount++ }
+			if _, e := net.DefaultResolver.LookupHost(ctx, "github.com"); e != nil {
+				if dnsErr, ok := e.(net.Error); ok && dnsErr.Timeout(){ slowCount++ }
+				errCount++
+			} else { successCount++ }
 			// We should get about 10/sec/resolver
-			e := time.Now()
-			if e.Sub(s).Seconds() >= 5 {
-				fmt.Printf("Slow name query: %ss\t", e.Sub(s).Seconds())
-			}
 			time.Sleep(100 * time.Millisecond)
 		}
 	}

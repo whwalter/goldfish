@@ -2,6 +2,7 @@ FROM golang:1.16 as build
 
 COPY . /go/src/goldfish
 WORKDIR /go/src/goldfish
+ENV GODEBUG=netdns=cgo
 RUN go build -o /go/bin/goldfish main.go
 
 FROM debian:buster-slim
